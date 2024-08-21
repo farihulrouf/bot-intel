@@ -15,34 +15,21 @@ import (
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
-	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
-	// Menggunakan nama module dan path yang sesuai
 )
 
-const (
-	charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-)
+const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 var (
 	clients        = make(map[string]*whatsmeow.Client)
-	data_client    = make(map[string]*whatsmeow.Client)
+	dataClient     = make(map[string]*whatsmeow.Client)
 	mutex          = &sync.Mutex{}
-	StoreContainer *sqlstore.Container
+	storeContainer *sqlstore.Container
 	clientLog      waLog.Logger
 )
 
-func EventHandler(evt interface{}) {
-
-	switch v := evt.(type) {
-	case *events.PairSuccess:
-		fmt.Println("pari succeess", v.ID.User)
-		initialClient()
-	}
-}
-
 func SetStoreContainer(container *sqlstore.Container) {
-	StoreContainer = container
+	storeContainer = container
 }
 
 func AddClient(id string, client *whatsmeow.Client) {
@@ -65,35 +52,39 @@ func GetClient(deviceStore *store.Device) *whatsmeow.Client {
 }
 
 func initialClient() {
+	mutex.Lock()
+	defer mutex.Unlock()
 
-	for key, value := range data_client {
+	for key, value := range dataClient {
 		clients[key] = value
 	}
 }
-func setClient_data(key string, client *whatsmeow.Client) {
+
+func setClientData(key string, client *whatsmeow.Client) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	// Clear existing data
-	for k := range data_client {
-		delete(data_client, k)
+	for k := range dataClient {
+		delete(dataClient, k)
 	}
 	// Set new client
-	data_client[key] = client
+	dataClient[key] = client
 }
 
 func CreateDevice(w http.ResponseWriter, r *http.Request) {
-	deviceStore := StoreContainer.NewDevice()
+	deviceStore := storeContainer.NewDevice()
 	client := GetClient(deviceStore)
 	deviceID := GenerateRandomString("Device", 3)
-	//data_client[deviceID] = client
-	setClient_data(deviceID, client)
+	setClientData(deviceID, client)
 	qrCode, jid := connectClient(client)
 
 	var response []models.ClientInfo
 
-	fmt.Println("Data client setelah ditambahkan:", jid)
+	fmt.Println("Client data after adding:", jid)
 
-	// Iterasi melalui peta `clients` untuk membuat respons
+	// Iterate through the `clients` map to create response
 	for key, client := range clients {
-		//fmt.Printf(key)
 		response = append(response, models.ClientInfo{
 			ID:     key,
 			Number: client.Store.ID.String(),
@@ -134,7 +125,6 @@ func GenerateRandomString(prefix string, length int) string {
 }
 
 func connectClient(client *whatsmeow.Client) (string, *types.JID) {
-	var err error
 	qrChan := make(chan string)
 
 	// Disconnect client if it's already connected
@@ -154,7 +144,7 @@ func connectClient(client *whatsmeow.Client) (string, *types.JID) {
 			}
 		}
 	}()
-	err = client.Connect()
+	err := client.Connect()
 	if err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
