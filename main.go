@@ -57,7 +57,7 @@ func main() {
 
 	for _, device := range devices {
 		client := whatsmeow.NewClient(device, clientLog)
-		controllers.AddClient(controllers.GenerateRandomString("Device", 3), client)
+		controllers.AddClient("silver12", client)
 		client.AddEventHandler(controllers.EventHandler)
 
 		if client.Store.ID == nil {

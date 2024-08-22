@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"bot_intel/helpers"
 	"bot_intel/models"
 	"encoding/json"
 	"fmt"
@@ -43,31 +44,43 @@ func fetchBusinessData(name string, page int, limit int) ([]models.Business, err
 	return result.Businesses, nil
 }
 
-// EventHandler handles incoming WhatsApp events
 func EventHandler(evt interface{}) {
 	switch v := evt.(type) {
 	case *events.PairSuccess:
 		fmt.Println("Pair success:", v.ID.User)
-		initialClient()
+		initialClient() // Ensure this initializes `whatsmeowClient`
 	case *events.Message:
 		text := v.Message.GetConversation()
-		fmt.Println("Message:", text)
+		senderID := v.Info.Sender.String() // Mendapatkan ID pengirim
+		fmt.Printf("Message received from: %s\n", senderID)
 
 		// Fetch business data based on the message text
-		// Using default page and limit
 		businesses, err := fetchBusinessData(text, defaultPage, defaultLimit)
 		if err != nil {
 			log.Printf("Failed to fetch business data: %v", err)
 			return
 		}
 
-		// Print the business information
+		// Construct the response message
+		var replyMessage string
 		if len(businesses) == 0 {
-			fmt.Println("No business information found.")
+			replyMessage = "No business information found."
 		} else {
+			replyMessage = "Here is the business information:\n"
 			for _, b := range businesses {
-				fmt.Printf("Name: %s\nBusiness Name: %s\nAddress: %s\nSocial Media: %s\nWhatsApp: %s\nCategory: %s\nBusiness Photo: %s\nProduct Photo: %s\n\n",
-					b.Name, b.BusinessName, b.FullAddress, b.SocialMediaUrl, b.WhatsappNumber, b.Category, b.BusinessPhoto, b.ProductPhoto)
+				replyMessage += fmt.Sprintf("Name: %s\nBusiness Name: %s\nAddress: %s\nSocial Media: %s\nWhatsApp: %s\nCategory: %s\n\n",
+					b.Name, b.BusinessName, b.FullAddress, b.SocialMediaUrl, b.WhatsappNumber, b.Category)
+			}
+			client, ok := clients["silver12"] // Assuming senderID is used as a key
+			if !ok {
+				log.Printf("No client found for sender ID: %s", senderID)
+				return
+			}
+
+			// Send auto-reply
+			err = helpers.SendMessageToPhoneNumber(client, senderID, replyMessage)
+			if err != nil {
+				log.Printf("Failed to send auto-reply: %v", err)
 			}
 		}
 
