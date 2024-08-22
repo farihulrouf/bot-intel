@@ -49,28 +49,35 @@ func EventHandler(evt interface{}) {
 	case *events.PairSuccess:
 		fmt.Println("Pair success:", v.ID.User)
 		initialClient() // Ensure this initializes `whatsmeowClient`
+
 	case *events.Message:
+		// Extract message text and sender ID
 		text := v.Message.GetConversation()
-		senderID := v.Info.Sender.String() // Mendapatkan ID pengirim
-		fmt.Printf("Message received from: %s\n", senderID)
+		senderID := v.Info.Sender.String()
 
-		// Fetch business data based on the message text
-		businesses, err := fetchBusinessData(text, defaultPage, defaultLimit)
-		if err != nil {
-			log.Printf("Failed to fetch business data: %v", err)
-			return
-		}
+		// Check conditions: message is not from the user, text is not empty, and message is not an image
+		if !v.Info.IsFromMe && text != "" {
+			fmt.Printf("Message received from: %s\n", senderID)
 
-		// Construct the response message
-		var replyMessage string
-		if len(businesses) == 0 {
-			replyMessage = "No business information found."
-		} else {
-			replyMessage = "Here is the business information:\n"
-			for _, b := range businesses {
-				replyMessage += fmt.Sprintf("Name: %s\nBusiness Name: %s\nAddress: %s\nSocial Media: %s\nWhatsApp: %s\nCategory: %s\n\n",
-					b.Name, b.BusinessName, b.FullAddress, b.SocialMediaUrl, b.WhatsappNumber, b.Category)
+			// Fetch business data based on the message text
+			businesses, err := fetchBusinessData(text, defaultPage, defaultLimit)
+			if err != nil {
+				log.Printf("Failed to fetch business data: %v", err)
+				return
 			}
+
+			// Construct the response message
+			var replyMessage string
+			if len(businesses) == 0 {
+				replyMessage = "No business information found."
+			} else {
+				replyMessage = "Here is the business information:\n"
+				for _, b := range businesses {
+					replyMessage += fmt.Sprintf("Name: %s\nBusiness Name: %s\nAddress: %s\nSocial Media: %s\nWhatsApp: %s\nCategory: %s\n\n",
+						b.Name, b.BusinessName, b.FullAddress, b.SocialMediaUrl, b.WhatsappNumber, b.Category)
+				}
+			}
+
 			client, ok := clients["silver12"] // Assuming senderID is used as a key
 			if !ok {
 				log.Printf("No client found for sender ID: %s", senderID)
@@ -82,6 +89,8 @@ func EventHandler(evt interface{}) {
 			if err != nil {
 				log.Printf("Failed to send auto-reply: %v", err)
 			}
+		} else {
+			fmt.Printf("Message ignored from: %s\n", senderID)
 		}
 
 	default:
