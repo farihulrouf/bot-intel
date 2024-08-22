@@ -2,8 +2,6 @@ module bot_intel
 
 go 1.22
 
-toolchain go1.22.5
-
 require (
 	github.com/gorilla/mux v1.8.1
 	github.com/joho/godotenv v1.5.1
